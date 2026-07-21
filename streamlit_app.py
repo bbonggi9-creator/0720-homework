@@ -27,7 +27,7 @@ PROGRAMS = [
             "미묘한 분위기와 문자 장면이 특히 설레는 프로그램이에요.",
             "누가 누구를 선택할지 추리하면서 보는 재미가 커요."
         ],
-        "star_fill": 4,
+        "star_fill": 3,
         "image_url": ""
     },
     {
@@ -66,7 +66,7 @@ PROGRAMS = [
             "현실적인 대화가 많아서 더 진짜처럼 느껴져요.",
             "솔직하고 직진하는 분위기가 강해서 몰입돼요."
         ],
-        "star_fill": 4,
+        "star_fill": 5,
         "image_url": ""
     },
     {
@@ -79,7 +79,7 @@ PROGRAMS = [
             "과거와 현재 감정이 교차해서 감정선이 진하게 느껴져요.",
             "감정 흐름이 섬세해서 오래 기억에 남는 프로그램이에요."
         ],
-        "star_fill": 4,
+        "star_fill": 3,
         "image_url": ""
     }
 ]
@@ -108,6 +108,17 @@ CATEGORY_CLASS_MAP = {
     "재회·감정서사 중심": "tag-reunion"
 }
 
+CATEGORY_ALIASES = {
+    "긴장-자극 중심": "긴장감·자극 중심",
+    "긴장자극 중심": "긴장감·자극 중심",
+    "긴장-자극중심": "긴장감·자극 중심",
+    "긴장자극중심": "긴장감·자극 중심",
+    "재회-감정서사 중심": "재회·감정서사 중심",
+    "재회감정서사 중심": "재회·감정서사 중심",
+    "재회-감정서사중심": "재회·감정서사 중심",
+    "재회감정서사중심": "재회·감정서사 중심",
+}
+
 IMAGE_NAME_MAP = {
     "하트 시그널": "하트시그널",
     "모태솔로지만 연애는 하고 싶어": "모태솔로지만연애는하고싶어",
@@ -119,6 +130,22 @@ IMAGE_NAME_MAP = {
 # ---------------------------------
 # CSS
 # ---------------------------------
+def normalize_category_name(value: str) -> str:
+    if value in CATEGORY_ALIASES:
+        return CATEGORY_ALIASES[value]
+
+    for category in ALL_CATEGORIES:
+        if value == category:
+            return category
+
+    normalized_value = re.sub(r"[\s·-]+", "", value).lower()
+    for category in ALL_CATEGORIES:
+        if re.sub(r"[\s·-]+", "", category).lower() == normalized_value:
+            return category
+
+    return value
+
+
 def inject_css():
     st.markdown(
         """
@@ -182,14 +209,19 @@ def inject_css():
             background: linear-gradient(135deg, #fdf2f8 0%, #fff7ed 45%, #eef2ff 100%);
             border-color: #f9a8d4;
             padding: 32px 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
         }
 
         .hero-title {
-            font-size: 2.1rem;
+            font-size: 2.5rem;
             font-weight: 800;
             margin: 0 0 10px 0;
             color: #111827;
-            line-height: 1.35;
+            line-height: 1.25;
             letter-spacing: -0.02em;
         }
 
@@ -444,6 +476,7 @@ def render_program_card(program: dict):
             <li>{escape(program['reviews'][0])}</li>
             <li>{escape(program['reviews'][1])}</li>
           </ul>
+          <p class='section-title' style='font-size: 0.95rem; margin-top: 6px; margin-bottom: 2px;'>개발자의 추천 별점</p>
           <div class='star-row'>{render_star_icons(program.get('star_fill', 4))}</div>
         </div>
         """,
@@ -522,11 +555,13 @@ with st.expander("카테고리 설명 보기", expanded=False):
 if len(selected_categories) < 2:
     st.info("카테고리 2개를 선택하면 추천 결과가 나타납니다.")
 else:
+    canonical_selected_categories = [normalize_category_name(category) for category in selected_categories]
+
     scored_programs = []
     for idx, program in enumerate(PROGRAMS):
         score = 0
         matched = []
-        for category in selected_categories:
+        for category in canonical_selected_categories:
             if category == program["primary_category"]:
                 score += 2
                 matched.append(category)
@@ -540,29 +575,26 @@ else:
 
     st.markdown("<div class='section-box' style='margin-top: 18px;'><p class='section-title'>당신에게 추천하는 프로그램</p><p class='helper-text'>선택한 두 가지 취향과 가장 잘 맞는 프로그램을 정리했습니다.</p></div>", unsafe_allow_html=True)
 
-    recommend_cards_html = []
-    for score, idx, program, matched in top_two:
-        if "설렘·썸 중심" in matched:
-            reason_text = "설렘·썸 중심 취향과 잘 맞는 구성이 강점입니다."
-        elif "성장·공감 중심" in matched:
-            reason_text = "성장·공감 요소가 살아 있어 취향에 잘 맞습니다."
-        elif "결혼·현실성 중심" in matched:
-            reason_text = "결혼·현실성 중심 취향과 높은 관련이 있습니다."
-        elif "재회·감정서사 중심" in matched:
-            reason_text = "재회·감정서사 중심의 몰입감이 잘 맞습니다."
-        elif score >= 4:
-            reason_text = "선택한 카테고리와 가장 많이 일치하는 프로그램입니다."
-        elif score == 3:
-            reason_text = "선택한 취향과 잘 맞는 구성이 강점입니다."
-        elif score == 2:
-            reason_text = "선택한 카테고리와 높은 관련이 있습니다."
-        else:
-            reason_text = "선택한 취향과 연결되는 요소가 분명히 느껴지는 프로그램입니다."
-
-        recommend_cards_html.append(build_recommend_card(program, matched, reason_text))
-
     cols = st.columns(2, gap="small")
     for col, card in zip(cols, top_two):
         with col:
-            _, _, program, matched = card
-            render_recommend_card(program, matched, "선택한 취향과 잘 맞는 프로그램입니다.")
+            score, idx, program, matched = card
+
+            if "설렘·썸 중심" in matched:
+                reason_text = "설렘·썸 중심 취향과 잘 맞는 구성이 강점입니다."
+            elif "성장·공감 중심" in matched:
+                reason_text = "성장·공감 요소가 살아 있어 취향에 잘 맞습니다."
+            elif "결혼·현실성 중심" in matched:
+                reason_text = "결혼·현실성 중심 취향과 높은 관련이 있습니다."
+            elif "재회·감정서사 중심" in matched:
+                reason_text = "재회·감정서사 중심의 몰입감이 잘 맞습니다."
+            elif score >= 4:
+                reason_text = "선택한 카테고리와 가장 많이 일치하는 프로그램입니다."
+            elif score == 3:
+                reason_text = "선택한 취향과 잘 맞는 구성이 강점입니다."
+            elif score == 2:
+                reason_text = "선택한 카테고리와 높은 관련이 있습니다."
+            else:
+                reason_text = "선택한 취향과 연결되는 요소가 분명히 느껴지는 프로그램입니다."
+
+            render_recommend_card(program, matched, reason_text)
